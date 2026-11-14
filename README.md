@@ -75,3 +75,12 @@ core of the build host stays as installed.
 
 `mtproto` is built from Telegram's published MTProto documentation and TL schema. Everyone this project builds on:
 [ATTRIBUTIONS.md](https://github.com/p1ngb4ck/esphome/blob/dev/ATTRIBUTIONS.md).
+
+## Branch structure
+
+Each `pr/` branch holds one part of this topic on top of upstream and says in its `BRANCH.md` what it is based on. `main` holds all of them.
+
+| Branch | Based on |
+|---|---|
+| `pr/messenger` | `pr/audio-task-priority` of p1ngb4ck/esphome-audio, `pr/camera-encoder-h264` of p1ngb4ck/esphome-esp-video, `pr/network-priority` of p1ngb4ck/esphome-network, `pr/storage` of p1ngb4ck/esphome-storage-interface |
+| `pr/mtproto` | `pr/network-priority` of p1ngb4ck/esphome-network |
