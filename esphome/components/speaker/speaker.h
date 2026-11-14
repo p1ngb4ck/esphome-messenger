@@ -144,6 +144,18 @@ class Speaker {
   }
 #endif
 
+  bool stop_for_teardown_() {
+    if (this->state_ == STATE_STARTING || this->state_ == STATE_RUNNING)
+      this->stop();
+    return this->state_ == STATE_STOPPED;
+  }
+  template<typename T> bool teardown_with_loop_(T *component) {
+    if (this->stop_for_teardown_())
+      return true;
+    component->loop();
+    return this->state_ == STATE_STOPPED;
+  }
+
   State state_{STATE_STOPPED};
   bool mute_state_{false};
   audio::AudioStreamInfo audio_stream_info_;
