@@ -14,7 +14,6 @@
 
 #include <freertos/event_groups.h>
 
-#include <algorithm>
 #include <atomic>
 #include <vector>
 
@@ -25,8 +24,6 @@ class ResamplerSpeaker final : public Component, public speaker::Speaker {
   void dump_config() override;
   void setup() override;
   void loop() override;
-  void on_shutdown() override { this->stop_for_teardown_(); }
-  bool teardown() override { return this->teardown_with_loop_(this); }
 
   size_t play(const uint8_t *data, size_t length, TickType_t ticks_to_wait) override;
   size_t play(const uint8_t *data, size_t length) override { return this->play(data, length, 0); }
@@ -56,24 +53,15 @@ class ResamplerSpeaker final : public Component, public speaker::Speaker {
   void set_output_speaker(speaker::Speaker *speaker) { this->output_speaker_ = speaker; }
   void add_output(speaker::Speaker *speaker, const char *name, uint32_t sample_rate, uint8_t bits_per_sample,
                   uint8_t channels) {
-    this->outputs_.push_back({speaker, name, fnv1_hash(name), sample_rate, bits_per_sample, channels, this->take_order_()});
+    this->outputs_.push_back({speaker, name, fnv1_hash(name), sample_rate, bits_per_sample, channels, this->next_order_++});
   }
   size_t add_output_group(uint32_t sample_rate, uint8_t bits_per_sample, uint8_t channels) {
-    this->groups_.push_back({sample_rate, bits_per_sample, channels, this->take_order_()});
+    this->groups_.push_back({sample_rate, bits_per_sample, channels, this->next_order_++});
     return this->groups_.size() - 1;
   }
   void add_group_output(size_t group, speaker::Speaker *speaker, const char *name, uint32_t key, uint32_t sample_rate,
                         uint8_t bits_per_sample, uint8_t channels);
-  void add_runtime_output(speaker::Speaker *speaker, const char *name, uint32_t key, uint32_t sample_rate,
-                          uint8_t bits_per_sample, uint8_t channels, int16_t position);
   void remove_output(speaker::Speaker *speaker);
-  void forget_output(speaker::Speaker *speaker);
-  bool holds_output(const speaker::Speaker *speaker) const {
-    return this->output_speaker_ == speaker || (this->switch_pending_ && this->pending_speaker_ == speaker);
-  }
-  size_t added_output_count() const {
-    return std::count_if(this->outputs_.begin(), this->outputs_.end(), [](const Output &output) { return output.added; });
-  }
   void set_preference_key(uint32_t key) { this->preference_key_ = key; }
 
   void select_output(size_t index);
@@ -136,7 +124,6 @@ class ResamplerSpeaker final : public Component, public speaker::Speaker {
     uint8_t bits_per_sample;
     uint8_t channels;
     uint8_t order;
-    bool added{false};
   };
   struct Group {
     uint32_t sample_rate;
@@ -144,14 +131,6 @@ class ResamplerSpeaker final : public Component, public speaker::Speaker {
     uint8_t channels;
     uint8_t order;
   };
-  void insert_output_(speaker::Speaker *speaker, const char *name, uint32_t key, uint32_t sample_rate,
-                      uint8_t bits_per_sample, uint8_t channels, uint8_t order);
-  void load_preference_();
-  uint8_t take_order_() {
-    const uint8_t order = this->next_order_;
-    this->next_order_ += 2;
-    return order;
-  }
   void apply_output_(speaker::Speaker *speaker);
   void take_pending_output_();
   void switch_to_(speaker::Speaker *speaker);
@@ -168,9 +147,8 @@ class ResamplerSpeaker final : public Component, public speaker::Speaker {
   uint32_t wanted_key_{0};
   size_t active_{0};
   speaker::Speaker *pending_speaker_{nullptr};
-  uint8_t next_order_{1};
+  uint8_t next_order_{0};
   uint8_t output_channels_{0};
-  bool preference_loaded_{false};
   bool switch_pending_{false};
   bool volume_set_{false};
   bool mute_set_{false};
