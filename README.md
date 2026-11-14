@@ -82,5 +82,5 @@ Each `pr/` branch holds one part of this topic on top of upstream and says in it
 
 | Branch | Based on |
 |---|---|
-| `pr/messenger` | `pr/audio-task-priority` of p1ngb4ck/esphome-audio, `pr/camera-encoder-h264` of p1ngb4ck/esphome-esp-video, `pr/network-priority` of p1ngb4ck/esphome-network, `pr/storage` of p1ngb4ck/esphome-storage-interface |
+| `pr/messenger` | `pr/mtproto`, `pr/camera-encoder-h264` of p1ngb4ck/esphome-esp-video, `pr/sip-phone` of p1ngb4ck/esphome-phone, `pr/storage` of p1ngb4ck/esphome-storage-interface |
 | `pr/mtproto` | `pr/network-priority` of p1ngb4ck/esphome-network |
