@@ -7,7 +7,6 @@
 #include "esphome/core/application.h"
 #include "esphome/core/defines.h"
 #include "esphome/core/helpers.h"
-#include "esphome/core/hal.h"
 #include "esphome/core/log.h"
 
 #include <algorithm>
@@ -71,8 +70,12 @@ void ResamplerSpeaker::setup() {
                               this->passthrough_bits_per_sample_ ? static_cast<uint8_t>(0) : this->target_bits_per_sample_,
                               0, 0});
   }
-  if (this->preference_key_ != 0 && this->outputs_.size() + this->groups_.size() > 1)
-    this->load_preference_();
+  if (this->preference_key_ != 0 && this->outputs_.size() + this->groups_.size() > 1) {
+    this->pref_ = global_preferences->make_preference<uint32_t>(this->preference_key_);
+    uint32_t stored = 0;
+    if (this->pref_.load(&stored))
+      this->wanted_key_ = stored;
+  }
   this->output_speaker_ = nullptr;
   if (!this->outputs_.empty()) {
     size_t index = 0;
@@ -89,16 +92,6 @@ void ResamplerSpeaker::setup() {
 
   // Start with loop disabled since no task is running and no commands are pending
   this->disable_loop();
-}
-
-void ResamplerSpeaker::load_preference_() {
-  if (this->preference_loaded_)
-    return;
-  this->preference_loaded_ = true;
-  this->pref_ = global_preferences->make_preference<uint32_t>(this->preference_key_);
-  uint32_t stored = 0;
-  if (this->pref_.load(&stored))
-    this->wanted_key_ = stored;
 }
 
 void ResamplerSpeaker::hook_(speaker::Speaker *speaker) {
@@ -131,29 +124,14 @@ size_t ResamplerSpeaker::index_of_(const speaker::Speaker *speaker) const {
 
 void ResamplerSpeaker::add_group_output(size_t group, speaker::Speaker *speaker, const char *name, uint32_t key,
                                         uint32_t sample_rate, uint8_t bits_per_sample, uint8_t channels) {
-  if (group >= this->groups_.size())
+  if (group >= this->groups_.size() || this->index_of_(speaker) != this->outputs_.size())
     return;
-  this->insert_output_(speaker, name, key, sample_rate, bits_per_sample, channels, this->groups_[group].order);
-}
-
-void ResamplerSpeaker::add_runtime_output(speaker::Speaker *speaker, const char *name, uint32_t key,
-                                          uint32_t sample_rate, uint8_t bits_per_sample, uint8_t channels,
-                                          int16_t position) {
-  if (this->preference_key_ != 0)
-    this->load_preference_();
-  this->insert_output_(speaker, name, key, sample_rate, bits_per_sample, channels,
-                       position < 0 ? this->next_order_ : static_cast<uint8_t>(position * 2));
-}
-
-void ResamplerSpeaker::insert_output_(speaker::Speaker *speaker, const char *name, uint32_t key, uint32_t sample_rate,
-                                      uint8_t bits_per_sample, uint8_t channels, uint8_t order) {
-  if (this->index_of_(speaker) != this->outputs_.size())
-    return;
+  const Group &g = this->groups_[group];
   size_t position = 0;
-  while (position < this->outputs_.size() && this->outputs_[position].order <= order)
+  while (position < this->outputs_.size() && this->outputs_[position].order <= g.order)
     position++;
   this->outputs_.insert(this->outputs_.begin() + position,
-                        {speaker, name, key, sample_rate, bits_per_sample, channels, order, true});
+                        {speaker, name, key, sample_rate, bits_per_sample, channels, g.order});
   this->hook_(speaker);
   ESP_LOGI(TAG, "Output added: %s", name);
   if (this->output_speaker_ == nullptr) {
@@ -196,11 +174,6 @@ void ResamplerSpeaker::remove_output(speaker::Speaker *speaker) {
     this->active_ = this->index_of_(this->output_speaker_);
   }
   this->outputs_changed_callback_.call();
-}
-
-void ResamplerSpeaker::forget_output(speaker::Speaker *speaker) {
-  this->remove_output(speaker);
-  std::erase(this->hooked_, speaker);
 }
 
 void ResamplerSpeaker::loop() {
@@ -515,7 +488,7 @@ esp_err_t ResamplerSpeaker::start_() {
   if (this->resampling_) {
     // Start the resampler task to handle converting sample rates
     if (!this->task_.create(resample_task, "resampler", TASK_STACK_SIZE, (void *) this, RESAMPLER_TASK_PRIORITY,
-                            this->task_stack_in_psram_, LOOP_TASK_CORE)) {
+                            this->task_stack_in_psram_)) {
       return ESP_ERR_NO_MEM;
     }
   }
