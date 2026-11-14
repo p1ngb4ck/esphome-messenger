@@ -270,7 +270,7 @@ void Mtproto::setup() {
                           network::global_network_component->get_active_interface() !=
                               network::NetworkInterface::NETWORK_INTERFACE_NONE);
 #endif
-  if (!this->task_.create(task_entry_, "mtproto", TASK_STACK, this, TASK_PRIORITY, true, LOOP_TASK_CORE)) {
+  if (!this->task_.create(task_entry_, "mtproto", TASK_STACK, this, TASK_PRIORITY, false, LOOP_TASK_CORE)) {
     ESP_LOGE(TAG, "No memory for the task");
     this->mark_failed();
     return;
