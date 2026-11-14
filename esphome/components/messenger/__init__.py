@@ -2,12 +2,10 @@ from esphome import automation
 import esphome.codegen as cg
 from esphome.components import audio, microphone, network, socket, speaker
 from esphome.components.esp32 import (
-    CMAKE_MINIMUM_PATCH,
     add_idf_component,
     add_idf_sdkconfig_option,
     request_tls,
     require_mbedtls_tls_server,
-    sync_registry_component,
 )
 from esphome.components.mtproto import CONF_MTPROTO_ID, Mtproto
 from esphome.components.http_request import CONF_HTTP_REQUEST_ID, HttpRequestComponent
@@ -27,15 +25,7 @@ from esphome.const import (
 )
 from esphome.types import ConfigType
 
-
-
-def AUTO_LOAD(config=None) -> list[str]:
-    load = ["json", "audio", "ring_buffer", "mtproto", "image", "runtime_image"]
-    if config and config.get("camera"):
-        load.append("camera")
-    return load
-
-
+AUTO_LOAD = ["json", "audio", "ring_buffer", "mtproto", "image", "runtime_image"]
 DEPENDENCIES = ["network", "http_request"]
 
 CONF_TELEGRAM = "telegram"
@@ -296,13 +286,6 @@ async def to_code(config: ConfigType) -> None:
             if relay := call.get(CONF_VIDEO_RELAY):
                 cg.add(var.set_call_video_relay(relay[CONF_HOST], relay[CONF_PORT]))
             add_idf_component(name="espressif/esp_peer", ref="1.5.7")
-            add_idf_component(
-                name="espressif/esp_libsrtp",
-                ref="1.0.0",
-                override_path=sync_registry_component(
-                    "espressif", "esp_libsrtp", "1.0.0", [("CMakeLists.txt", *CMAKE_MINIMUM_PATCH)]
-                ),
-            )
             request_tls()
             require_mbedtls_tls_server()
             add_idf_sdkconfig_option("CONFIG_MBEDTLS_SSL_PROTO_DTLS", True)

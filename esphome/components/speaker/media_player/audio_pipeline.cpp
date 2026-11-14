@@ -142,7 +142,7 @@ AudioPipelineState AudioPipeline::process_state() {
                 ESP_LOGE(TAG, "Incompatible bits per sample. Only 16 bits per sample is supported");
                 break;
               case DecodingError::INCOMPATIBLE_CHANNELS:
-                ESP_LOGE(TAG, "Incompatible number of channels. Only 1 through 8 channel audio is supported.");
+                ESP_LOGE(TAG, "Incompatible number of channels. Only 1 or 2 channel audio is supported.");
                 break;
             }
           }
@@ -269,8 +269,7 @@ esp_err_t AudioPipeline::start_tasks_() {
     // Reader task uses the AudioReader class which uses esp_http_client. This crashes on IDF 5.4 if the task stack is
     // in PSRAM. As a workaround, always allocate the read task in internal memory.
     snprintf(task_name, sizeof(task_name), "%s_read", this->base_name_);
-    if (!this->read_task_.create(read_task, task_name, READ_TASK_STACK_SIZE, (void *) this, this->priority_, false,
-                                 LOOP_TASK_CORE)) {
+    if (!this->read_task_.create(read_task, task_name, READ_TASK_STACK_SIZE, (void *) this, this->priority_, false)) {
       return ESP_ERR_NO_MEM;
     }
   }
@@ -279,8 +278,8 @@ esp_err_t AudioPipeline::start_tasks_() {
     // One above the reader and the main loop: paced by its sink, it takes no more than the sound needs,
     // and the sound does not wait for them. The reader fills its ring as fast as the source gives.
     snprintf(task_name, sizeof(task_name), "%s_decode", this->base_name_);
-    if (!this->decode_task_.create(decode_task, task_name, DECODE_TASK_STACK_SIZE, (void *) this, this->priority_ + 1,
-                                   this->task_stack_in_psram_, LOOP_TASK_CORE)) {
+    if (!this->decode_task_.create(decode_task, task_name, DECODE_TASK_STACK_SIZE, (void *) this, this->priority_,
+                                   this->task_stack_in_psram_)) {
       return ESP_ERR_NO_MEM;
     }
   }
@@ -475,7 +474,7 @@ void AudioPipeline::decode_task(void *params) {
             event.decoding_err = DecodingError::INCOMPATIBLE_BITS_PER_SAMPLE;
             xEventGroupSetBits(this_pipeline->event_group_,
                                EventGroupBits::DECODER_MESSAGE_ERROR | EventGroupBits::PIPELINE_COMMAND_STOP);
-          } else if ((this_pipeline->current_audio_stream_info_.get_channels() > 8)) {
+          } else if ((this_pipeline->current_audio_stream_info_.get_channels() > 2)) {
             // Error state, incompatible number of channels
             event.decoding_err = DecodingError::INCOMPATIBLE_CHANNELS;
             xEventGroupSetBits(this_pipeline->event_group_,
